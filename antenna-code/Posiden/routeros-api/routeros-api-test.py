@@ -1,6 +1,6 @@
-import routeros_api
+import routeros_api # type: ignore
 import os
-from dotenv import load_dotenv
+from dotenv import load_dotenv # type: ignore
 import time
 
 load_dotenv()
