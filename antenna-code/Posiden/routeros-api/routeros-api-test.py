@@ -1,10 +1,14 @@
 import routeros_api
+import os
+from dotenv import load_dotenv
+
+load_dotenv()
 
 # Connect to MikroTik Router
 connection = routeros_api.RouterOsApiPool(
-    host="10.0.2.3",  # Change to your router's IP
-    username="admin",
-    password="yourpasswordhere",
+    host = os.getenv("HOST") ,  # Change to your router's IP
+    username=os.getenv("USERNAME"),
+    password=os.getenv("PASSWORD"),
     plaintext_login=True  # Ensure API login works without encryption
 )
 
