@@ -1,6 +1,10 @@
 from serial import Serial
 from pynmeagps import NMEAReader # type: ignore
 import time
+
+# test
+# Stream info recived from meshtastic gps via uart connection
+
 while True:
   with Serial('/dev/ttyS0', 9600) as stream:
     nmr = NMEAReader(stream)
