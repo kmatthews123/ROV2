@@ -1,5 +1,0 @@
-pynmea2==1.19.0
-pynmeagps==1.0.44
-pyserial==3.5
-python-dotenv==1.0.1
-RouterOS-api==0.18.1
