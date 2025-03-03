@@ -1,0 +1,235 @@
+# # # Working code
+# # # SPDX-FileCopyrightText: 2025 Liz Clark for Adafruit Industries
+# # # #
+# # SPDX-License-Identifier: MIT
+
+# #--- Magnetometer ---#
+# import math
+# import adafruit_lis2mdl # type: ignore
+
+# # magnetometer = adafruit_lis2mdl.LIS2MDL(i2c)
+# # # calibration for magnetometer X (min, max), Y and Z
+# # # hardiron_calibration = [[1000, -1000], [1000, -1000], [1000, -1000]]
+
+# #--- stepper control ---
+# import time
+# from time import sleep
+# import board
+# from digitalio import DigitalInOut, Direction
+
+# #--- neopixel ---
+# from rainbowio import colorwheel
+# import neopixel # type: ignore
+
+# pixel = neopixel.NeoPixel(board.NEOPIXEL, 1)
+# pixel.brightness = 0.3
+
+
+# i2c = board.I2C()  # uses board.SCL and board.SDA
+# # i2c = board.STEMMA_I2C()  # For using the built-in STEMMA QT connector on a microcontroller
+# magnetometer = adafruit_lis2mdl.LIS2MDL(i2c)
+# # magnetometer calibration value
+# hardiron_calibration = [[-15.15, 16.5], [8.7, 40.5], [-17.55, -7.35]]
+
+# # stepper stuff
+# # direction and step pins as outputs
+# DIR = DigitalInOut(board.D0)
+# DIR.direction = Direction.OUTPUT
+# STEP = DigitalInOut(board.D1)
+# STEP.direction = Direction.OUTPUT
+
+# # step selection pin assingment
+# # step selection table
+# # |  MS1  |  MS2  | Microstep Resolution
+# # |  LOW  |  LOW  | 1/8
+# # |  LOW  |  HIGH | 1/2
+# # |  HIGH |  LOW  | 1/4
+# # |  HIGH |  HIGH | 1/16
+# MS1 = DigitalInOut(board.D3)
+# MS1.direction = Direction.OUTPUT
+# MS1.value = False
+# MS2 = DigitalInOut(board.D2)
+# MS2.direction = Direction.OUTPUT
+# MS2.value = False
+
+# # microstep mode, default is 1/8 so 8
+# # another ex: 1/16 microstep would be 16
+# microMode = 8
+# # modify the number below to tweak amount of steps in one revolution.
+# # I probably am not going to keep this
+# steps = 100 * microMode
+
+# # This will take the magnetometer values, adjust them with the calibrations
+# # and return a new array with the XYZ values ranging from -100 to 100
+# def normalize(_magvals):
+
+#     ret = [0, 0, 0]
+
+#     for i, axis in enumerate(_magvals):
+
+#         minv, maxv = hardiron_calibration[i]
+
+#         axis = min(max(minv, axis), maxv)  # keep within min/max calibration
+
+#         ret[i] = (axis - minv) * 200 / (maxv - minv) + -100
+
+#     return ret
+
+# # not using this yet
+# def calibrate():
+#     hardiron_calibration = [[1000, -1000], [1000, -1000], [1000, -1000]]
+#     print("Prepare to calibrate! Twist the magnetometer around in 3D in...")
+#     print("3...")
+#     time.sleep(1)
+#     print("2...")
+#     time.sleep(1)
+#     print("1...")
+#     time.sleep(1)   
+#     start_time = time.monotonic()
+#     # Update the high and low extremes
+#     while time.monotonic() - start_time < 10.0:
+#         magval = magnetometer.magnetic
+#         print("Calibrating - X:{0:10.2f}, Y:{1:10.2f}, Z:{2:10.2f} uT".format(*magval))
+#         for i, axis in enumerate(magval):
+#             hardiron_calibration[i][0] = min(hardiron_calibration[i][0], axis)
+#             hardiron_calibration[i][1] = max(hardiron_calibration[i][1], axis)
+#     print("Calibration complete:")
+#     print("hardiron_calibration =", hardiron_calibration)
+#     return hardiron_calibration
+
+# def rainbow():
+#     for color_value in range(255):
+#         pixel[0] = colorwheel(color_value)
+        
+
+
+
+# while True:
+#     # change direction every loop
+#     DIR.value = not DIR.value
+#     # toggle STEP pin to move the motor
+#     for i in range(steps):
+#         STEP.value = True
+#         time.sleep(0.001)
+#         STEP.value = False
+#         time.sleep(0.001)
+#         magvals = magnetometer.magnetic
+#         normvals = normalize(magvals)
+#         print("magnetometer: %s -> %s" % (magvals, normvals))
+#         # we will only use X and Y for the compass calculations, so hold it level!
+#         compass_heading = int(math.atan2(normvals[1], normvals[0]) * 180.0 / math.pi)
+#         # compass_heading is between -180 and +180 since atan2 returns -pi to +pi
+#         # this translates it to be between 0 and 360
+#         compass_heading += 180
+#         print("Heading:", compass_heading)
+        
+#     print("rotated! now reverse")
+#     print("heading: ", compass_heading)
+#     rainbow()
+
+#     time.sleep(0.1)
+# --------------------------------------------------------------------------
+import board
+import digitalio
+import time
+
+
+# # stepper stuff
+# # direction and step pins as outputs
+# DIR = DigitalInOut(board.D0)
+# DIR.direction = Direction.OUTPUT
+# STEP = DigitalInOut(board.D1)
+# STEP.direction = Direction.OUTPUT
+
+# # step selection pin assingment
+# # step selection table
+# # |  MS1  |  MS2  | Microstep Resolution
+# # |  LOW  |  LOW  | 1/8
+# # |  LOW  |  HIGH | 1/2
+# # |  HIGH |  LOW  | 1/4
+# # |  HIGH |  HIGH | 1/16
+# MS1 = DigitalInOut(board.D3)
+# MS1.direction = Direction.OUTPUT
+# MS1.value = False
+# MS2 = DigitalInOut(board.D2)
+# MS2.direction = Direction.OUTPUT
+# MS2.value = False
+
+
+# Define GPIO pins for motor control and endstops
+direction_pin = digitalio.DigitalInOut(board.D0)  # Direction pin (GPIO23)
+step_pin = digitalio.DigitalInOut(board.D1)      # Step pin (GPIO18)
+endstop_plus = digitalio.DigitalInOut(board.D6)    # Endstop Plus switch (GPIO4)
+endstop_minus = digitalio.DigitalInOut(board.D7)   # Endstop Minus switch (GPIO5)
+
+# Setup pins as outputs or inputs
+direction_pin.direction = digitalio.Direction.OUTPUT
+step_pin.direction = digitalio.Direction.OUTPUT
+
+endstop_plus.direction = digitalio.Direction.INPUT
+endstop_plus.pull = digitalio.Pull.UP
+
+endstop_minus.direction = digitalio.Direction.INPUT
+endstop_minus.pull = digitalio.Pull.UP
+
+# Setup microstepping values
+MS1 = digitalio.DigitalInOut(board.D3)
+MS1.direction = digitalio.Direction.OUTPUT
+MS1.value = False
+MS2 = digitalio.DigitalInOut(board.D2)
+MS2.direction = digitalio.Direction.OUTPUT
+MS2.value = True
+
+
+# Define motor directions
+FORWARD = False
+REVERSE = True
+
+def set_direction(direction):
+    direction_pin.value = direction
+
+def step():
+    step_pin.value = True
+    time.sleep(0.001)  # Pulse width
+    step_pin.value = False
+
+# Main loop parameters
+step_delay = 0.002     # Time between steps (adjust for speed)
+debounce_time = 0.1   # Debounce time in seconds
+
+last_plus = False
+last_minus = False
+last_check = 0
+
+try:
+    while True:
+        current_time = time.time()
+        
+        # Debounce endstop inputs
+        if current_time - last_check > debounce_time:
+            plus_triggered = not endstop_plus.value
+            minus_triggered = not endstop_minus.value
+            
+            if plus_triggered != last_plus or minus_triggered != last_minus:
+                if plus_triggered:
+                    print("Plus endstop triggered, reversing direction to reverse.")
+                    set_direction(REVERSE)
+                elif minus_triggered:
+                    print("Minus endstop triggered, reversing direction to forward.")
+                    set_direction(FORWARD)
+                
+                last_plus = plus_triggered
+                last_minus = minus_triggered
+                last_check = current_time
+        
+        # Step the motor in the current direction
+        step()
+        time.sleep(step_delay)
+
+except KeyboardInterrupt:
+    print("Program stopped by user")
+finally:
+    direction_pin.deinit()
+    step_pin.deinit()
+    endstop_plus.deinit()
+    endstop_minus.deinit()

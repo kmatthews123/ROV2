@@ -2,6 +2,13 @@
 .env
 .venv/
 
+# circuit python stuff
+lib/
+sd/
+./vscode
+.fseventsd/
+.metadata_*
+.Trash*
 
 .venv/
 .env/
