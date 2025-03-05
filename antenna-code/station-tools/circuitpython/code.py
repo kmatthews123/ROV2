@@ -41,7 +41,7 @@ hardiron_calibration = [[-15.15, 16.5], [8.7, 40.5], [-17.55, -7.35]] # magnetom
 # stepper
 step_delay = 0.002  # Time between steps (adjust for speed)
 # endstops
-debounce_time = 0.01  # Debounce time in seconds
+debounce_time = 0.001  # Debounce time in seconds
 
 
 
@@ -50,7 +50,10 @@ calibration_complete = False
 steps_around = 0
 minus_heading = 0
 plus_heading = 0
-
+steps_per_angle = 0
+minus_heading_min = 0
+plus_heading_min = 0
+min_arc = 0
 
 # This will take the magnetometer values, adjust them with the calibrations
 # and return a new array with the XYZ values ranging from -100 to 100
@@ -158,7 +161,7 @@ def calibrate():
     minus_heading = get_heading()
     
     calibration_complete = True
-    print(f"Calibration complete. Steps between stops: {steps_around}")
+    #print(f"Calibration complete. Steps between stops: {steps_around}")
 
 def get_heading():
     magvals = magnetometer.magnetic
@@ -172,8 +175,39 @@ def get_heading():
     print("Heading:", compass_heading)
     return compass_heading
 
+def find_smallest_arc(plus_list, minus_list, expected_arc=None):
+    best_p = None
+    best_m = None
+    best_arc = None
+
+    for p in plus_list:
+        for m in minus_list:
+            # Calculate both the direct and wrap-around arcs
+            direct_arc = abs(p - m)
+            wraparound_arc = 360 - direct_arc
+            chosen_arc = min(direct_arc, wraparound_arc)
+
+            # If expected arc is provided and greater than 180, prefer the wrap-around arc but find the smallest wrap-around arc
+            if expected_arc and expected_arc > 180:
+                # If the wraparound arc is smaller, prefer it
+                if abs(wraparound_arc - expected_arc) < abs(direct_arc - expected_arc):
+                    chosen_arc = wraparound_arc
+                # Otherwise, pick the smallest arc (either direct or wraparound)
+                else:
+                    chosen_arc = min(direct_arc, wraparound_arc)
+
+            # Always pick the smallest arc
+            if best_arc is None or chosen_arc < best_arc:
+                best_arc = chosen_arc
+                best_p = p
+                best_m = m
+
+    return best_p, best_m, best_arc
+
+
 def preform_calibration(num_passes, step_division, swing_range):
     # lists of calibration values for each itteration
+    global avg_cal_value, steps_per_angle, plus_heading_min, minus_heading_min, min_arc
     cal_values = []
     list_plus = []
     list_minus = []
@@ -188,19 +222,30 @@ def preform_calibration(num_passes, step_division, swing_range):
     # we want to average the number of steps between endstops so we get a pretty close number of steps to make the angles right
     avg_cal_value = round(sum(cal_values) / len(cal_values))
     steps_per_angle = swing_range / avg_cal_value
+
     # we want to get the most inside heading angles so when we tell the antenna to swing to a specific heading it can check if that heading is possible
     # im gonna need to do this when im more awake. because in one direction youll want the biggest number and in the other youll want the smallest number 
     # I think that for the plus endstop youll want the bigger heading and for the minus endstop youll want the smaller number? but what if you go around past 360? theres probably some trig uses here that can be handy.
     # again gonna need to have a think on this one for the "safe" values
+    # because we take two measurements, the plus value should always be the bigger number and the minus side should be the smaller value
+    # this way the safest angle is always taken into account (aka the smallest angle)
+    # set heading limits
+    plus_heading_min, minus_heading_min, min_arc = find_smallest_arc(list_plus, list_minus, swing_range)
+
     print(f"Average steps between stops: {avg_cal_value}")
     print(f"Calculated angle per step: {steps_per_angle}")
+    print(f"safest endstop headings: {plus_heading_min}, {minus_heading_min}")
+    print(f"Coverage arc: {min_arc}")
 
-# # TODO work on saftey headings
-# # TODO work on function to set antenna heading
-# # TODO figure out offset stuff for magnetometer?
+
+# # TODO work on function to move to heading
+# # TODO figure out offset stuff for magnetometer? I worked some on this. its seems like we will be using a garbage in garbage out method. if that dosent work ill probably relocate the sensor to the cente rof spin
 
 while True:
-    preform_calibration(2, 8, 30)
+    # preform_calibration(2, 8, 30)
     # preform_calibration(2, 4, 30)
     # preform_calibration(2, 2, 30)
-    preform_calibration(2, 16, 30)
+    get_heading()
+    time.sleep(0.2)
+    # preform_calibration(4, 8, 60)
+ 
