@@ -5,7 +5,7 @@ import digitalio #type: ignore
 import time
 import math
 import adafruit_lis2mdl # type: ignore
-import usb_cdc
+import usb_cdc # type: ignore
 
 # Setup pins as outputs or inputs
 
@@ -212,12 +212,32 @@ def preform_calibration(num_passes, step_division):
     print(f"Arc length = {arc_len}")
 
 
+def goto_steps(num_steps, step_divison):
+    set_microstep_div(step_divison)
+    if num_steps < 0 :
+        set_direction(REVERSE)
+        for i in range(abs(num_steps)):
+            step()
+            time.sleep(step_delay)
+    else:
+        set_direction(FORWARD)
+        for i in range(abs(num_steps)):
+            step()
+            time.sleep(step_delay)
 
-
-# def goto_heading(target_heading):
-#     """Calculate the number of steps needed to move to target_heading."""
-#     global arc_len, avg_plus, avg_minus, avg_step_value
-
-preform_calibration(1, 8)
-
-# goto_heading(10)
+while True:
+    preform_calibration(1, 8)
+    preform_calibration(2, 4)
+    preform_calibration(2, 2)
+    preform_calibration(2, 16)
+#     goto_steps(-4000, 8)
+#     print(f" heading 1 {get_heading()}")
+#     goto_steps(4000, 8)
+#     print(f" heading 2 {get_heading()}")
+# while True:
+    # preform_calibration(1, 8)
+    # preform_calibration(2, 4)
+    # preform_calibration(2, 2)
+    # preform_calibration(2, 16)
+#             time.sleep(step_delay)
+#         val_invert -= 1
