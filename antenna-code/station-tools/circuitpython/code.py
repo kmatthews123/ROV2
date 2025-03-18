@@ -225,11 +225,11 @@ def goto_steps(num_steps, step_divison):
             step()
             time.sleep(step_delay)
 
-while True:
-    preform_calibration(1, 8)
-    preform_calibration(2, 4)
-    preform_calibration(2, 2)
-    preform_calibration(2, 16)
+# while True:
+preform_calibration(1, 8)
+preform_calibration(2, 4)
+preform_calibration(2, 2)
+preform_calibration(2, 16)
 #     goto_steps(-4000, 8)
 #     print(f" heading 1 {get_heading()}")
 #     goto_steps(4000, 8)
