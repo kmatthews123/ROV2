@@ -1,0 +1,39 @@
+set microstep value to 8
+plus heading = 348.794
+minus heading = 37.0425
+plus heading = 352.476
+minus heading = 37.725
+Average steps between stops: 1088
+Calculated angle per step: 0.0275735
+safest endstop headings: 352.476, 37.0425
+Coverage arc: 44.5664
+
+set microstep value to 2
+plus heading = 351.416
+minus heading = 38.0616
+plus heading = 347.758
+minus heading = 39.0532
+Average steps between stops: 8636
+Calculated angle per step: 0.00347383
+safest endstop headings: 351.416, 38.0616
+Coverage arc: 46.6454
+
+set microstep value to 4
+plus heading = 348.275
+minus heading = 39.3776
+plus heading = 349.838
+minus heading = 36.3475
+Average steps between stops: 4326
+Calculated angle per step: 0.00693481
+safest endstop headings: 349.838, 36.3475
+Coverage arc: 46.5096
+
+set microstep value to 16
+plus heading = 346.729
+minus heading = 38.7257
+plus heading = 347.242
+minus heading = 37.725
+Average steps between stops: 2168
+Calculated angle per step: 0.0138376
+safest endstop headings: 347.242, 37.725
+Coverage arc: 50.4827
