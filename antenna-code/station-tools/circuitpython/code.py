@@ -41,29 +41,11 @@ hardiron_calibration = [[-32.7, 10.2], [-4.95, 36.45], [-24.15, -17.25]]
 #headings are sloppy this handles the slop +- 3 degrees of slop seems normal with propper calibration
 acceptable_range = 1
 # stepper
-<<<<<<< HEAD
 # step delay min and max for smoothing movement to desired heading
 MIN_STEP_DELAY = 0.001  # Fastest stepping speed
 MAX_STEP_DELAY = 0.0013   # Slowest stepping speed
 
 # begin functions
-=======
-step_delay = 0.002  # Time between steps (adjust for speed)
-# endstops
-debounce_time = 0.001  # Debounce time in seconds
-# Motor state tracking
-current_step_position = 0  # Tracks the stepper's current step position
-target_position = 0
-
-# Calibration global variables
-calibration_complete = False
-steps_around = 0
-minus_heading = 0
-plus_heading = 0
-arc_len = 0
-avg_plus = 0
-avg_minus = 0
->>>>>>> main
 
 # This will take the magnetometer values, adjust them with the calibrations
 # and return a new array with the XYZ values ranging from -100 to 100
@@ -138,43 +120,6 @@ def step(step_delay):
     time.sleep(step_delay)  # Pulse width
     step_pin.value = False
 
-<<<<<<< HEAD
-=======
-def calibrate():
-    global calibration_complete, steps_around, minus_heading, plus_heading
-    if calibration_complete:
-        calibration_complete = False
-        steps_around = 0
-        minus_heading = 0
-    
-    # Move forward until endplus is hit
-    set_direction(FORWARD)
-    while True:
-        step()
-        time.sleep(step_delay)
-        if not endstop_plus.value:  # Endplus pressed
-            break
-    # Wait for debounce to ensure the switch is released
-    time.sleep(debounce_time)
-    plus_heading = get_heading()
-    print(f"plus heading = {plus_heading}")
-    
-    # Now move backward until endminus is hit, counting steps
-    set_direction(REVERSE)
-    while True:
-        step()
-        steps_around += 1
-        time.sleep(step_delay)
-        if not endstop_minus.value:  # Endminus pressed
-            break
-    # Ensure the switch is released before completing
-    time.sleep(debounce_time)
-    minus_heading = get_heading()
-    print(f"minus heading = {minus_heading}")
-    
-    calibration_complete = True
-
->>>>>>> main
 def get_heading():
     magvals = magnetometer.magnetic
     normvals = normalize(magvals)
@@ -187,7 +132,6 @@ def get_heading():
     #print("Heading:", compass_heading)
     return compass_heading
 
-<<<<<<< HEAD
 # This works but with no smoothing steps, abrupt stops, and no slop handling
 # This would probably be fine to use tbh, unless I figure out full steps...
 # def gotoheading(Desired_Heading):
@@ -257,65 +201,3 @@ while True:
     for item in headings:
         gotoheading(item)
         time.sleep(5.0)
-=======
-def angle_between_headings(heading1, heading2):
-    # Calculate the raw difference
-    angle = abs(heading2 - heading1) % 360
-    
-    # If the angle is greater than 180°, we take the complementary angle
-    if angle > 180:
-        angle = 360 - angle
-    
-    return angle
-
-def preform_calibration(num_passes, step_division):
-    # lists of calibration values for each itteration
-    global avg_step_value, arc_len, avg_plus, avg_minus
-    cal_values = []
-    list_plus = []
-    list_minus = []
-    set_microstep_div(step_division)
-    # run calibration, record values
-    for i in range (num_passes):
-        calibrate()
-        cal_values.append(steps_around)
-        list_plus.append(plus_heading)
-        list_minus.append(minus_heading)
-    avg_step_value = round(sum(cal_values) / len(cal_values))
-    avg_minus = round(sum(list_minus) / len(list_minus))
-    avg_plus = round(sum(list_plus) / len(list_plus))
-    arc_len = angle_between_headings(avg_plus, avg_minus)
-    print(f"Average steps between stops: {avg_step_value}")
-    print(f"Arc length = {arc_len}")
-
-
-def goto_steps(num_steps, step_divison):
-    set_microstep_div(step_divison)
-    if num_steps < 0 :
-        set_direction(REVERSE)
-        for i in range(abs(num_steps)):
-            step()
-            time.sleep(step_delay)
-    else:
-        set_direction(FORWARD)
-        for i in range(abs(num_steps)):
-            step()
-            time.sleep(step_delay)
-
-# while True:
-preform_calibration(1, 8)
-preform_calibration(2, 4)
-preform_calibration(2, 2)
-preform_calibration(2, 16)
-#     goto_steps(-4000, 8)
-#     print(f" heading 1 {get_heading()}")
-#     goto_steps(4000, 8)
-#     print(f" heading 2 {get_heading()}")
-# while True:
-    # preform_calibration(1, 8)
-    # preform_calibration(2, 4)
-    # preform_calibration(2, 2)
-    # preform_calibration(2, 16)
-#             time.sleep(step_delay)
-#         val_invert -= 1
->>>>>>> main
