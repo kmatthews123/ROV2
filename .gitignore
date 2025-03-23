@@ -1,11 +1,7 @@
 .venv/
 .env/
-**/.vscode/
-<<<<<<< HEAD
+**/.vscode
 *.FCBak
-=======
-**.FCBak
->>>>>>> main
 
 # Byte-compiled / optimized / DLL files
 __pycache__/
