@@ -5,6 +5,7 @@ import digitalio #type: ignore
 import time
 import math
 import adafruit_lis2mdl # type: ignore
+import usb_cdc # type: ignore
 
 # Setup pins as outputs or inputs
 
@@ -15,45 +16,54 @@ step_pin = digitalio.DigitalInOut(board.D1)
 direction_pin.direction = digitalio.Direction.OUTPUT
 step_pin.direction = digitalio.Direction.OUTPUT
 # Define motor directions at start of program
-FORWARD = False
-REVERSE = True
+FORWARD = True
+REVERSE = False
 # Setup microstepping pins
 MS1 = digitalio.DigitalInOut(board.D3)
 MS2 = digitalio.DigitalInOut(board.D2)
 MS1.direction = digitalio.Direction.OUTPUT
 MS2.direction = digitalio.Direction.OUTPUT
 
-# endstops
-endstop_plus = digitalio.DigitalInOut(board.D6)
-endstop_minus = digitalio.DigitalInOut(board.D7)
-endstop_plus.direction = digitalio.Direction.INPUT
-endstop_minus.direction = digitalio.Direction.INPUT
-endstop_plus.pull = digitalio.Pull.UP
-endstop_minus.pull = digitalio.Pull.UP
-
 #magnetometer
-i2c = board.I2C()
+# i2c = board.I2C()
+i2c = board.STEMMA_I2C()  # For using the built-in STEMMA QT connector on a microcontroller
 magnetometer = adafruit_lis2mdl.LIS2MDL(i2c)
+
+#USB serial data
+#Access the USB serial port
+usb_serial = usb_cdc.data
 
 # Variables
 # magnetometer
-hardiron_calibration = [[-15.15, 16.5], [8.7, 40.5], [-17.55, -7.35]] # magnetometer calibration value
+# adjust based on location and random shit in the area 
+# magnetometer calibration value
+hardiron_calibration = [[-32.7, 10.2], [-4.95, 36.45], [-24.15, -17.25]] 
+#headings are sloppy this handles the slop +- 3 degrees of slop seems normal with propper calibration
+acceptable_range = 1
 # stepper
+<<<<<<< HEAD
+# step delay min and max for smoothing movement to desired heading
+MIN_STEP_DELAY = 0.001  # Fastest stepping speed
+MAX_STEP_DELAY = 0.0013   # Slowest stepping speed
+
+# begin functions
+=======
 step_delay = 0.002  # Time between steps (adjust for speed)
 # endstops
 debounce_time = 0.001  # Debounce time in seconds
-
-
+# Motor state tracking
+current_step_position = 0  # Tracks the stepper's current step position
+target_position = 0
 
 # Calibration global variables
 calibration_complete = False
 steps_around = 0
 minus_heading = 0
 plus_heading = 0
-steps_per_angle = 0
-minus_heading_min = 0
-plus_heading_min = 0
-min_arc = 0
+arc_len = 0
+avg_plus = 0
+avg_minus = 0
+>>>>>>> main
 
 # This will take the magnetometer values, adjust them with the calibrations
 # and return a new array with the XYZ values ranging from -100 to 100
@@ -93,15 +103,14 @@ def calibrate_hardiorn():
     print("hardiron_calibration =", hardiron_calibration)
     return hardiron_calibration
 
-
 def set_microstep_div(step_div):
 # Define microstepping values
-# # step selection table
-# # |  MS1  |  MS2  | Microstep Resolution
-# # |  False |  False | 1/8 
-# # |  False |  True  | 1/2
-# # |  True  |  False | 1/4
-# # |  True  |  True  | 1/16
+# step selection table
+# |  MS1   |  MS2   | Microstep Resolution
+# |  False |  False | 1/8 fast
+# |  False |  True  | 1/2 medium slow
+# |  True  |  False | 1/4 medium (I think?)
+# |  True  |  True  | 1/16 most slow (I think?)
     microstep_config = {
         8: {'MS1': False, 'MS2': False},
         2: {'MS1': False, 'MS2': True},
@@ -113,23 +122,24 @@ def set_microstep_div(step_div):
         global MS1, MS2
         MS1.value = microstep_config[step_div]['MS1']
         MS2.value = microstep_config[step_div]['MS2']
-        print(f"set microstep value to {step_div}")
+        # print(f"set microstep value to {step_div}")
     else:
         global MS1, MS2
         MS1.value = False
         MS2.value = False
-        print("unknown microstep value selected, setting to 1/8")
-
+        # print("unknown microstep value selected, setting to 1/8")
         
-
 def set_direction(direction):
     direction_pin.value = direction
+   # print(direction_pin.value)
 
-def step():
+def step(step_delay):
     step_pin.value = True
-    time.sleep(0.001)  # Pulse width
+    time.sleep(step_delay)  # Pulse width
     step_pin.value = False
 
+<<<<<<< HEAD
+=======
 def calibrate():
     global calibration_complete, steps_around, minus_heading, plus_heading
     if calibration_complete:
@@ -147,6 +157,7 @@ def calibrate():
     # Wait for debounce to ensure the switch is released
     time.sleep(debounce_time)
     plus_heading = get_heading()
+    print(f"plus heading = {plus_heading}")
     
     # Now move backward until endminus is hit, counting steps
     set_direction(REVERSE)
@@ -159,55 +170,107 @@ def calibrate():
     # Ensure the switch is released before completing
     time.sleep(debounce_time)
     minus_heading = get_heading()
+    print(f"minus heading = {minus_heading}")
     
     calibration_complete = True
-    #print(f"Calibration complete. Steps between stops: {steps_around}")
 
+>>>>>>> main
 def get_heading():
     magvals = magnetometer.magnetic
     normvals = normalize(magvals)
     # print("magnetometer: %s -> %s" % (magvals, normvals))
     # we will only use X and Y for the compass calculations, so hold it level!
-    compass_heading = float(math.atan2(normvals[1], normvals[0]) * 180.0 / math.pi)
+    compass_heading = int(math.atan2(normvals[1], normvals[0]) * 180.0 / math.pi)
     # compass_heading is between -180 and +180 since atan2 returns -pi to +pi
     # this translates it to be between 0 and 360
     compass_heading += 180
-    print("Heading:", compass_heading)
+    #print("Heading:", compass_heading)
     return compass_heading
 
-def find_smallest_arc(plus_list, minus_list, expected_arc=None):
-    best_p = None
-    best_m = None
-    best_arc = None
+<<<<<<< HEAD
+# This works but with no smoothing steps, abrupt stops, and no slop handling
+# This would probably be fine to use tbh, unless I figure out full steps...
+# def gotoheading(Desired_Heading):
+#     while get_heading() != Desired_Heading:
+        
+#         current_heading = get_heading()
+#         heading_diff = (Desired_Heading - current_heading) % 360
+        
+#         if heading_diff <= 180:
+#             set_direction(FORWARD)
+#         else:
+#             set_direction(REVERSE)
 
-    for p in plus_list:
-        for m in minus_list:
-            # Calculate both the direct and wrap-around arcs
-            direct_arc = abs(p - m)
-            wraparound_arc = 360 - direct_arc
-            chosen_arc = min(direct_arc, wraparound_arc)
+#         step()
+#         print(get_heading())
+#         print(Desired_Heading)
 
-            # If expected arc is provided and greater than 180, prefer the wrap-around arc but find the smallest wrap-around arc
-            if expected_arc and expected_arc > 180:
-                # If the wraparound arc is smaller, prefer it
-                if abs(wraparound_arc - expected_arc) < abs(direct_arc - expected_arc):
-                    chosen_arc = wraparound_arc
-                # Otherwise, pick the smallest arc (either direct or wraparound)
-                else:
-                    chosen_arc = min(direct_arc, wraparound_arc)
+# Set microstepping mode # currently unnessicary, gotta figure out microstepping v full steps
+# def get_microstep_div(remaining_angle):
+#     """Determine the appropriate microstep division."""
+#     if remaining_angle > 18:
+#         return 8    # Coarse movement (1/8 step)
+#     elif remaining_angle > 10:
+#         return 2    # Medium movement (1/2 step)
+#     elif remaining_angle > 5:
+#         return 4    # Finer movement (1/4 step)
+#     else:
+#         return 16   # Precision movement (1/16 step)
 
-            # Always pick the smallest arc
-            if best_arc is None or chosen_arc < best_arc:
-                best_arc = chosen_arc
-                best_p = p
-                best_m = m
+def get_step_delay(remaining_angle):
+    """Adjust step delay to slow down smoothly as it nears the target."""
+    return MAX_STEP_DELAY - (MAX_STEP_DELAY - MIN_STEP_DELAY) * math.exp(-0.1 * remaining_angle)
 
-    return best_p, best_m, best_arc
+def gotoheading(Desired_Heading):
+    """Move stepper to the desired heading using adaptive microstepping and step delays."""
+    global acceptable_range 
+
+    while abs(get_heading() - Desired_Heading) > 0.1:  # Stop when close enough
+        current_heading = get_heading()
+        heading_diff = (Desired_Heading - current_heading) % 360
+
+        # Apply the dead zone: if the difference is within the acceptable range, break the loop
+        if heading_diff <= acceptable_range or (360 - heading_diff) <= acceptable_range:
+            print(f"Target reached: {current_heading:.2f}°")
+            break  # Stop if we're within the acceptable range
+
+        # Determine the shortest direction
+        if heading_diff <= 180:
+            set_direction(FORWARD)
+        else:
+            set_direction(REVERSE)
+            heading_diff = 360 - heading_diff  # Adjust for reverse direction
+
+        # microstep = get_microstep_div(heading_diff) # currently unnessicary, gotta figure out microstepping v full steps
+        set_microstep_div(8)
+        # Tweak step delay
+        step_delay = get_step_delay(heading_diff)  # Dynamically adjust step delay
+        
+        # set_microstep_div(microstep)  # Set microstepping mode # currently unnessicary, gotta figure out microstepping v full steps
+        step(step_delay)  # Execute step
+        print(f"Current: {current_heading:.2f}° | Target: {Desired_Heading}° | Remaining: {heading_diff:.2f}° | Microstep: 8 | Step Delay: {step_delay} | Slop: ±{acceptable_range} Degrees")
 
 
-def preform_calibration(num_passes, step_division, swing_range):
+# run though a list of headings, avoid looping around while I dont have a slipring installed
+while True:
+    headings = [0, 90, 180, 90, 0]
+    for item in headings:
+        gotoheading(item)
+        time.sleep(5.0)
+=======
+def angle_between_headings(heading1, heading2):
+    # Calculate the raw difference
+    angle = abs(heading2 - heading1) % 360
+    
+    # If the angle is greater than 180°, we take the complementary angle
+    if angle > 180:
+        angle = 360 - angle
+    
+    return angle
+
+def preform_calibration(num_passes, step_division):
     # lists of calibration values for each itteration
-    global avg_cal_value, steps_per_angle, plus_heading_min, minus_heading_min, min_arc
+    global avg_step_value, arc_len, avg_plus, avg_minus
     cal_values = []
     list_plus = []
     list_minus = []
@@ -218,34 +281,41 @@ def preform_calibration(num_passes, step_division, swing_range):
         cal_values.append(steps_around)
         list_plus.append(plus_heading)
         list_minus.append(minus_heading)
-    #print(cal_values)
-    # we want to average the number of steps between endstops so we get a pretty close number of steps to make the angles right
-    avg_cal_value = round(sum(cal_values) / len(cal_values))
-    steps_per_angle = swing_range / avg_cal_value
-
-    # we want to get the most inside heading angles so when we tell the antenna to swing to a specific heading it can check if that heading is possible
-    # im gonna need to do this when im more awake. because in one direction youll want the biggest number and in the other youll want the smallest number 
-    # I think that for the plus endstop youll want the bigger heading and for the minus endstop youll want the smaller number? but what if you go around past 360? theres probably some trig uses here that can be handy.
-    # again gonna need to have a think on this one for the "safe" values
-    # because we take two measurements, the plus value should always be the bigger number and the minus side should be the smaller value
-    # this way the safest angle is always taken into account (aka the smallest angle)
-    # set heading limits
-    plus_heading_min, minus_heading_min, min_arc = find_smallest_arc(list_plus, list_minus, swing_range)
-
-    print(f"Average steps between stops: {avg_cal_value}")
-    print(f"Calculated angle per step: {steps_per_angle}")
-    print(f"safest endstop headings: {plus_heading_min}, {minus_heading_min}")
-    print(f"Coverage arc: {min_arc}")
+    avg_step_value = round(sum(cal_values) / len(cal_values))
+    avg_minus = round(sum(list_minus) / len(list_minus))
+    avg_plus = round(sum(list_plus) / len(list_plus))
+    arc_len = angle_between_headings(avg_plus, avg_minus)
+    print(f"Average steps between stops: {avg_step_value}")
+    print(f"Arc length = {arc_len}")
 
 
-# # TODO work on function to move to heading
-# # TODO figure out offset stuff for magnetometer? I worked some on this. its seems like we will be using a garbage in garbage out method. if that dosent work ill probably relocate the sensor to the cente rof spin
+def goto_steps(num_steps, step_divison):
+    set_microstep_div(step_divison)
+    if num_steps < 0 :
+        set_direction(REVERSE)
+        for i in range(abs(num_steps)):
+            step()
+            time.sleep(step_delay)
+    else:
+        set_direction(FORWARD)
+        for i in range(abs(num_steps)):
+            step()
+            time.sleep(step_delay)
 
-while True:
-    # preform_calibration(2, 8, 30)
-    # preform_calibration(2, 4, 30)
-    # preform_calibration(2, 2, 30)
-    get_heading()
-    time.sleep(0.2)
-    # preform_calibration(4, 8, 60)
- 
+# while True:
+preform_calibration(1, 8)
+preform_calibration(2, 4)
+preform_calibration(2, 2)
+preform_calibration(2, 16)
+#     goto_steps(-4000, 8)
+#     print(f" heading 1 {get_heading()}")
+#     goto_steps(4000, 8)
+#     print(f" heading 2 {get_heading()}")
+# while True:
+    # preform_calibration(1, 8)
+    # preform_calibration(2, 4)
+    # preform_calibration(2, 2)
+    # preform_calibration(2, 16)
+#             time.sleep(step_delay)
+#         val_invert -= 1
+>>>>>>> main
