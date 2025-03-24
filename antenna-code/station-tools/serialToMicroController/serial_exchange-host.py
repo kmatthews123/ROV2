@@ -93,7 +93,7 @@ async def read_serial():
         if "buttons" in data:
             for button in data["buttons"]:
                 if button["status"] == "RELEASED":
-                    print(f"Button {button['id']} clicked")
+                    print(f"Qtpy2040 Button {button['id']} clicked")
 
         # unidentified data sent by the board, helps with testing
         if "raw" in data:
@@ -102,11 +102,11 @@ async def read_serial():
         await asyncio.sleep(0.1)
 
 
-async def read_color():
+async def read_user():
     """
-    Single format for a color to send to the neopixel
-    A color name sends that color to the neopixel
-    "blink" makes the monochrome LED blink once
+    Reads user input and outputs data to serial, uses a bunch of diffrent types of input.
+    first few are neopixel color switching (not useful for project but good examples)
+
     """
     data_out = []
     data_in = await ainput("> ")
@@ -126,9 +126,15 @@ async def read_color():
     elif data_in == "blink":
         # simple blink command
         return json.dumps({"blink": 1})
-
+    
+    elif re.match("^(\d+)$", data_in):
+        # send desired heading to micro controller
+        m = re.match("^(\d+)$", data_in)
+        heading = (int(m.group(1)))
+        return json.dumps({"heading": heading})
+    
     else:
-        # send anything anyway, helps testing the board side code
+        # send whatever the user just vomited into the serial console. helpful for testing
         return json.dumps({"raw": data_in})
 
     # should not be reached
@@ -138,14 +144,15 @@ async def read_color():
 async def send_serial():
     """
     Loop on a data provider (here a user prompt) and send the data.
+    This is where you could  possibly run your loop to check azimuth from the other serial terminal?
     """
     print("send_serial")
     while True:
         setup_serial()
-        color_string = await read_color()
+        user_string = await read_user()
         try:
-            if color_string:
-                channel.write((color_string + "\r\n").encode("utf8"))
+            if user_string:
+                channel.write((user_string + "\r\n").encode("utf8"))
         except Exception as ex:
             print(ex)
             error_serial()
