@@ -15,6 +15,7 @@ Some boards might require disabling USB endpoints to enable the data port.
 """
 
 import board
+import neopixel
 import digitalio
 import json
 import time
@@ -42,6 +43,7 @@ for ledname in ["LED", "L", "RED_LED", "BLUE_LED"]:
         print(ledname)
         break
 
+
 ################################################################
 # init board's button for acknowledging user interaction
 # replace with your own pins and stuff
@@ -51,16 +53,7 @@ for ledname in ["LED", "L", "RED_LED", "BLUE_LED"]:
 
 # boards with buttons:
 BUTTONS_CANDIDATES = [
-    "BUTTON",
-    "BUTTON_USR",
-    "BUTTON_USER",
-    "BUTTON_A",
-    "BUTTON_X",
-    "BUTTON_UP",
-    "BUTTON1",
-    "BUTTON_1",
-    "BOOT",
-    "BOOT0",
+    "BUTTON"
 ]
 for btn_pin in BUTTONS_CANDIDATES:
     if hasattr(board, btn_pin):
@@ -90,6 +83,17 @@ else:  # no break
 usb_cdc.data.timeout = 0.1
 if button:
     button_past = button.value
+
+################################################################
+# Functions
+################################################################
+def simp_function(variable):
+    if variable == True:
+        print("recieved a thing")
+        print(variable)
+    else:
+        print(variable)
+        print("wut")
 
 ################################################################
 # loop-y-loop
@@ -126,6 +130,14 @@ while True:
                 time.sleep(0.25)
                 led.value = False
                 time.sleep(0.25)
+
+            if "heading" in data:
+                print("recieved heading")
+                print(data["heading"])
+                simp_function(data)
+
+            else:
+                print(data)
 
     # read the buttons and send the info to the serial
     if button and button_past != button.value:
