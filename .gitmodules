@@ -1,0 +1,3 @@
+[submodule "librarys/serial-examples"]
+	path = librarys/serial-examples
+	url = https://github.com/NeraSamples/circuitpython_usb_serial.git
