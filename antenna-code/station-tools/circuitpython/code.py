@@ -7,7 +7,7 @@ import math
 import adafruit_lis2mdl # type: ignore
 import usb_cdc # type: ignore
 # import random
-import neopixel
+import neopixel # type: ignore
 import json
 
 # Setup pins as outputs or inputs

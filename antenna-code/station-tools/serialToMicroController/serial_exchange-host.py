@@ -10,7 +10,7 @@ import re
 import serial
 import sys
 import time
-from aioconsole import ainput
+from aioconsole import ainput # type: ignore
 import asyncio
 
 parser = argparse.ArgumentParser()

@@ -14,12 +14,12 @@ usb_cdc.enable(console=True, data=True)
 Some boards might require disabling USB endpoints to enable the data port.
 """
 
-import board
-import neopixel
-import digitalio
-import json
-import time
-import usb_cdc
+import board # type: ignore
+import neopixel # type: ignore
+import digitalio # type: ignore
+import json 
+import time 
+import usb_cdc # type: ignore
 
 ################################################################
 # init board's LEDs for visual output
