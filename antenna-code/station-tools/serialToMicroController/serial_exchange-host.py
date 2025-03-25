@@ -122,10 +122,6 @@ async def read_user():
         # color name for simple tests
         color = color_names[data_in.lower()]
         return json.dumps({"color": color})
-
-    elif data_in == "blink":
-        # simple blink command
-        return json.dumps({"blink": 1})
     
     elif re.match("^(\d+)$", data_in):
         # send desired heading to micro controller

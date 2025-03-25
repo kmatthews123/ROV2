@@ -6,6 +6,9 @@ import time
 import math
 import adafruit_lis2mdl # type: ignore
 import usb_cdc # type: ignore
+# import random
+import neopixel
+import json
 
 # Setup pins as outputs or inputs
 
@@ -31,7 +34,19 @@ magnetometer = adafruit_lis2mdl.LIS2MDL(i2c)
 
 #USB serial data
 #Access the USB serial port
-usb_serial = usb_cdc.data
+usb_cdc.data.timeout = 0.1
+# usb_serial = usb_cdc.data
+
+#Neopixel setup
+pix = neopixel.NeoPixel(board.NEOPIXEL, 1)
+pix.fill((3, 0, 3))
+
+#Boot button added as input
+button = digitalio.DigitalInOut(board.BUTTON)
+button.switch_to_input(digitalio.Pull.UP)
+button_id = "BUTTON"
+if button:
+    button_past = button.value
 
 # Variables
 # magnetometer
@@ -39,11 +54,11 @@ usb_serial = usb_cdc.data
 # magnetometer calibration value
 hardiron_calibration = [[-32.7, 10.2], [-4.95, 36.45], [-24.15, -17.25]] 
 #headings are sloppy this handles the slop +- 3 degrees of slop seems normal with propper calibration
-acceptable_range = 1
+acceptable_range = 0
 # stepper
 # step delay min and max for smoothing movement to desired heading
 MIN_STEP_DELAY = 0.001  # Fastest stepping speed
-MAX_STEP_DELAY = 0.0013   # Slowest stepping speed
+MAX_STEP_DELAY = 0.001009   # Slowest stepping speed
 
 # begin functions
 
@@ -192,12 +207,62 @@ def gotoheading(Desired_Heading):
         
         # set_microstep_div(microstep)  # Set microstepping mode # currently unnessicary, gotta figure out microstepping v full steps
         step(step_delay)  # Execute step
-        print(f"Current: {current_heading:.2f}° | Target: {Desired_Heading}° | Remaining: {heading_diff:.2f}° | Microstep: 8 | Step Delay: {step_delay} | Slop: ±{acceptable_range} Degrees")
+        # print(f"Current: {current_heading:.2f}° | Target: {Desired_Heading}° | Remaining: {heading_diff:.2f}° | Microstep: 8 | Step Delay: {step_delay} | Slop: ±{acceptable_range} Degrees")
+
 
 
 # run though a list of headings, avoid looping around while I dont have a slipring installed
+# while True:
+#     headings = [0, 90, 180, 270, 45, 120, 30, 320]
+#     # for item in headings:
+#     gotoheading(random.choice(headings))
+#     time.sleep(5.0)
+
+
 while True:
-    headings = [0, 90, 180, 90, 0]
-    for item in headings:
-        gotoheading(item)
-        time.sleep(5.0)
+    # add to that dictionary to send the data at the end of the loop
+    data_out = {}
+
+    # read the secondary serial line by line when there's data
+    if usb_cdc.data.in_waiting > 0:
+        data_in = usb_cdc.data.readline()
+
+        # try to convert the data to a dict (with JSON)
+        data = None
+        if len(data_in) > 0:
+            try:
+                data = json.loads(data_in)
+            except ValueError:
+                data = {"raw": data_in.decode()}
+
+        # interpret
+        if isinstance(data, dict):
+
+            # change the color of the neopixel
+            if "color" in data:
+                print(data["color"])
+                if pix is not None:
+                    pix.fill(data["color"])
+
+            if "heading" in data:
+                print("recieved heading")
+                print(data["heading"])
+                gotoheading(data["heading"])
+
+            else:
+                print(data)
+
+    # read the buttons and send the info to the serial
+    if button and button_past != button.value:
+        button_past = button.value
+        if not button.value:
+            data_out["buttons"] = [{"status": "PRESSED", "id": button_id}]
+        else:
+            data_out["buttons"] = [{"status": "RELEASED", "id": button_id}]
+
+    # send the data out once everything to be sent is gathered
+    if data_out:
+        print(json.dumps(data_out))
+        usb_cdc.data.write(json.dumps(data_out).encode() + b"\r\n")
+
+    time.sleep(0.1)

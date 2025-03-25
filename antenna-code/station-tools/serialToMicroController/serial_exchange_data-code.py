@@ -30,18 +30,9 @@ pix = None
 if hasattr(board, "NEOPIXEL"):
     import neopixel
     pix = neopixel.NeoPixel(board.NEOPIXEL, 1)
-    pix.fill((32, 16, 0))
+    pix.fill((3, 0, 3))
 else:
     print("This board is not equipped with a Neopixel.")
-
-led = None
-for ledname in ["LED", "L", "RED_LED", "BLUE_LED"]:
-    if hasattr(board, ledname):
-        led = digitalio.DigitalInOut(getattr(board, ledname))
-        led.switch_to_output()
-        led.value = False
-        print(ledname)
-        break
 
 
 ################################################################
@@ -51,30 +42,9 @@ for ledname in ["LED", "L", "RED_LED", "BLUE_LED"]:
 # - two fixed default values on some boards (for my tests)
 ################################################################
 
-# boards with buttons:
-BUTTONS_CANDIDATES = [
-    "BUTTON"
-]
-for btn_pin in BUTTONS_CANDIDATES:
-    if hasattr(board, btn_pin):
-        button = digitalio.DigitalInOut(getattr(board, btn_pin))
-        button.switch_to_input(digitalio.Pull.UP)
-        button_id = btn_pin
-        break
-else:  # no break
-    """
-    Change the BUTTON pin to match your setup, and button_id
-    """
-    # this is an example for the pico
-    if hasattr(board, "GP3"):
-        pin = board.GP3
-    # this is an example for most boards/feathers
-    elif hasattr(board, "A2"):
-        pin = board.A2
-    # pin = board.SOMEPIN
-    button = digitalio.DigitalInOut(pin)
-    button.switch_to_input(digitalio.Pull.UP)
-    button_id = repr(pin).replace("board.", "")
+button = digitalio.DigitalInOut(board.BUTTON)
+button.switch_to_input(digitalio.Pull.UP)
+button_id = "BUTTON"
 
 ################################################################
 # prepare values for the loop
@@ -123,13 +93,6 @@ while True:
                 print(data["color"])
                 if pix is not None:
                     pix.fill(data["color"])
-
-            # blinking without sleep is left as an exercise
-            if "blink" in data and led is not None:
-                led.value = True
-                time.sleep(0.25)
-                led.value = False
-                time.sleep(0.25)
 
             if "heading" in data:
                 print("recieved heading")
