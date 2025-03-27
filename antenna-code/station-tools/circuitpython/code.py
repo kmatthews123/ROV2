@@ -244,13 +244,33 @@ while True:
                 if pix is not None:
                     pix.fill(data["color"])
 
+            if 'raw' in data:
+                print(data['raw'])
+                color_names = {
+                    "aqua": [0, 255, 255],
+                    "black": [0, 0, 0],
+                    "blue": [0, 0, 255],
+                    "green": [0, 128, 0],
+                    "orange": [255, 165, 0],
+                    "pink": [240, 32, 128],
+                    "purple": [128, 0, 128],
+                    "red": [255, 0, 0],
+                    "white": [255, 255, 255],
+                    "yellow": [255, 255, 0],
+                }
+                if data['raw'] in color_names:
+                    pix.fill(color_names[data['raw']])
+                    print(color_names[data['raw']])
+                # if pix is not None:
+                #     pix.fill(data[list('raw')])
+
             if "heading" in data:
                 print("recieved heading")
                 print(data["heading"])
                 gotoheading(data["heading"])
 
-            else:
-                print(data)
+            # else:
+            #     print(data)
 
     # read the buttons and send the info to the serial
     if button and button_past != button.value:
