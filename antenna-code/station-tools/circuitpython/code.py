@@ -57,8 +57,8 @@ hardiron_calibration = [[-32.7, 10.2], [-4.95, 36.45], [-24.15, -17.25]]
 acceptable_range = 0
 # stepper
 # step delay min and max for smoothing movement to desired heading
-MIN_STEP_DELAY = 0.001  # Fastest stepping speed
-MAX_STEP_DELAY = 0.001009   # Slowest stepping speed
+MIN_STEP_DELAY = 0.0001  # Fastest stepping speed
+MAX_STEP_DELAY = 0.0001009   # Slowest stepping speed
 
 # begin functions
 
@@ -285,4 +285,4 @@ while True:
         print(json.dumps(data_out))
         usb_cdc.data.write(json.dumps(data_out).encode() + b"\r\n")
 
-    time.sleep(0.1)
+    time.sleep(0.001)
