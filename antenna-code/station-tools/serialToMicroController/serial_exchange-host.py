@@ -3,7 +3,7 @@ This script connects to the provided serial port.
 It sends color commands or other commands as a dictionary encoded in json.
 It receives button press from the serial port and displays what it gets.
 """
-import argparse
+
 import json
 import math
 import re
@@ -13,11 +13,16 @@ import time
 from aioconsole import ainput # type: ignore
 import asyncio
 
-parser = argparse.ArgumentParser()
-parser.add_argument("port", type=str, help="Serial port of the board", nargs=1)
-args = parser.parse_args()
+### the below was used prior to setting up symlinked serial devices
+# import argparse
+# parser = argparse.ArgumentParser()
+# parser.add_argument("port", type=str, help="Serial port of the board", nargs=1)
+# args = parser.parse_args()
 
-port = args.port
+# port = args.port
+# print(port)
+
+port = ['/dev/qtpy-data']
 channel = None
 
 color_names = {
@@ -45,7 +50,7 @@ def setup_serial():
     global channel
     if channel is None:
         try:
-            channel = serial.Serial(args.port[0])
+            channel = serial.Serial(port[0])
             channel.timeout = 0.05
         except Exception as ex:
             print(ex)
@@ -111,6 +116,7 @@ async def read_user():
     data_out = []
     data_in = await ainput("> ")
     data_in = data_in.strip()
+    print(data_in)
 
     if re.match("^\((\d+),(\d+),(\d+)\)$", data_in):
         # color formatted as (rrr,ggg,bbb)
@@ -128,6 +134,9 @@ async def read_user():
         m = re.match("^(\d+)$", data_in)
         heading = (int(m.group(1)))
         return json.dumps({"heading": heading})
+    
+    elif "exit" in data_in:
+        sys.exit()
     
     else:
         # send whatever the user just vomited into the serial console. helpful for testing
