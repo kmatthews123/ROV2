@@ -138,13 +138,17 @@ def step(step_delay):
 def get_heading():
     magvals = magnetometer.magnetic
     normvals = normalize(magvals)
-    # print("magnetometer: %s -> %s" % (magvals, normvals))
-    # we will only use X and Y for the compass calculations, so hold it level!
+
+    # compass_heading = int(math.atan2(normvals[1], normvals[0]) * 180.0 / math.pi)
+
+    # compass_heading += 180
+
     compass_heading = int(math.atan2(normvals[1], normvals[0]) * 180.0 / math.pi)
-    # compass_heading is between -180 and +180 since atan2 returns -pi to +pi
-    # this translates it to be between 0 and 360
     compass_heading += 180
-    #print("Heading:", compass_heading)
+    compass_heading = (360 - compass_heading) % 360
+    print(compass_heading)
+
+
     return compass_heading
 
 # This works but with no smoothing steps, abrupt stops, and no slop handling
@@ -187,6 +191,7 @@ def gotoheading(Desired_Heading):
     while abs(get_heading() - Desired_Heading) > 0.1:  # Stop when close enough
         current_heading = get_heading()
         heading_diff = (Desired_Heading - current_heading) % 360
+        print(current_heading)
 
         # Apply the dead zone: if the difference is within the acceptable range, break the loop
         if heading_diff <= acceptable_range or (360 - heading_diff) <= acceptable_range:
@@ -195,9 +200,9 @@ def gotoheading(Desired_Heading):
 
         # Determine the shortest direction
         if heading_diff <= 180:
-            set_direction(FORWARD)
-        else:
             set_direction(REVERSE)
+        else:
+            set_direction(FORWARD)
             heading_diff = 360 - heading_diff  # Adjust for reverse direction
 
         # microstep = get_microstep_div(heading_diff) # currently unnessicary, gotta figure out microstepping v full steps
