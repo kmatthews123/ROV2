@@ -1,5 +1,5 @@
 from serial import Serial
-from pynmeagps #import NMEAReader  # type: ignore
+from pynmeagps import NMEAReader  # type: ignore
 
 with Serial('/dev/ttyS0', 9600, timeout=3) as stream:
     nmr = NMEAReader(stream)
