@@ -53,8 +53,8 @@ def gps_reader(stdscr):
     back_azimuth = None  # To hold the back azimuth
 
     # Coordinates for the waypoint (you can update this dynamically as needed)
-    waypoint_lat = 47.01826
-    waypoint_lon = -122.8726016667
+    waypoint_lat = 41.12004
+    waypoint_lon = -112.04174
 
     # Open the serial connection
     with Serial('/dev/ttyS0', 9600, timeout=3) as stream:
