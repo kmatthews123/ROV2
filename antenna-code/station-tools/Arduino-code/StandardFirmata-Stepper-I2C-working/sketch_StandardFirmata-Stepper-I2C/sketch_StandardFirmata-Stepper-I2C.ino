@@ -29,6 +29,10 @@
 // for mega it is something else. add in here.
 #include <Firmata.h>
 #include <AccelStepper.h>
+#include <Adafruit_Sensor.h>
+#include <Adafruit_LIS2MDL.h>
+#include <Adafruit_LSM303_Accel.h>
+
 
 // the minimum interval for sampling analog input
 #define MINIMUM_SAMPLING_INTERVAL   1
@@ -43,7 +47,12 @@ AccelStepper stepperYaw(AccelStepper::DRIVER, 4, 5);
 // bool ledState = false;
 // int ledDelay = 500; // default delay, can be updated via string command
 
+Adafruit_LIS2MDL mag = Adafruit_LIS2MDL();
+unsigned long lastMagRead = 0;
 
+#define FIRMATA_FIRMWARE_MAJOR_VERSION 2
+#define FIRMATA_FIRMWARE_MINOR_VERSION 6
+//#define FIRMATA_FIRMWARE_NAME "LightFirmata"
 /*==============================================================================
  * GLOBAL VARIABLES
  *============================================================================*/
@@ -201,18 +210,57 @@ snprintf(buffer, sizeof(buffer),
 
     Firmata.sendString(buffer);
 }
+// void lis2mdlCallback(uint8_t* data, byte len) {
+//   sensors_event_t event;
+//   mag.getEvent(&event);
 
+//   float Pi = 3.14159;
 
-//---------------------------------------------stepper stuff I added----------------------------------------------------------
+//   // If no data yet, return "?"
+//   if (event.magnetic.x == 0 && event.magnetic.y == 0) {
+//     Firmata.sendString("SM303AGR:Heading=?");
+//     return;
+//   }
+
+//   float heading = atan2(event.magnetic.y, event.magnetic.x) * 180.0 / Pi;
+//   if (heading < 0) heading += 360.0;
+
+//   char buffer[64];
+//   snprintf(buffer, sizeof(buffer), "SM303AGR:Heading=%.1f", heading);
+//   Firmata.sendString(buffer);
+// }
+
+//---------------------------------------------stepper stuff --------------------------------------------------------
 void stringCallback(char *command) {
-  char *device = strtok(command, ":");
-  char *target = strtok(NULL, ":");
-  char *value  = strtok(NULL, ":");
+    // --- update speed/accel first ---
+    if (strncmp(command, "PITCH_SPEED:", 12) == 0) {
+        float speed = atof(command + 12);
+        stepperPitch.setMaxSpeed(speed);
+        return;
+    }
+    if (strncmp(command, "PITCH_ACCEL:", 12) == 0) {
+        float accel = atof(command + 12);
+        stepperPitch.setAcceleration(accel);
+        return;
+    }
+    if (strncmp(command, "YAW_SPEED:", 10) == 0) {
+        float speed = atof(command + 10);
+        stepperYaw.setMaxSpeed(speed);
+        return;
+    }
+    if (strncmp(command, "YAW_ACCEL:", 10) == 0) {
+        float accel = atof(command + 10);
+        stepperYaw.setAcceleration(accel);
+        return;
+    }
 
-  if (!device || !target || !value) return;
+    // --- existing move logic ---
+    char *device = strtok(command, ":");
+    char *target = strtok(NULL, ":");
+    char *value  = strtok(NULL, ":");
 
-  // --- Stepper Commands ---
-if (strcmp(device, "PITCH") == 0 || strcmp(device, "YAW") == 0) {
+    if (!device || !target || !value) return;
+
     AccelStepper *stepper = (strcmp(device, "PITCH") == 0) ? &stepperPitch : &stepperYaw;
     bool *runningFlag = (strcmp(device, "PITCH") == 0) ? &pitchRunning : &yawRunning;
 
@@ -220,16 +268,71 @@ if (strcmp(device, "PITCH") == 0 || strcmp(device, "YAW") == 0) {
     if (strcmp(target, "CCW") == 0) numSteps = -numSteps;
 
     stepper->move(numSteps);
-    *runningFlag = true; // mark that movement has started
+    *runningFlag = true;
 }
 
-  // // --- LED Commands ---
-  // else if (strcmp(device, "TEST") == 0 && strcmp(target, "LED1") == 0) {
-  //   ledDelay = atoi(value); // update delay for blinking
-  //   pinMode(ledPin, OUTPUT);
-  // }
+// -------------------- Stepper helper --------------------
+void runSteppers() {
+  if (stepperPitch.run() == false && pitchRunning) {
+      pitchRunning = false;
+      Firmata.sendString("PITCH:DONE");
+  }
+  if (stepperYaw.run() == false && yawRunning) {
+      yawRunning = false;
+      Firmata.sendString("YAW:DONE");
+  }
 }
 
+// -------------------- Generic I2C helper --------------------
+void updateI2CDevices(unsigned long now) {
+  for (int i = 0; i < deviceCount; i++) {
+      if (now - devices[i].lastRead >= devices[i].interval) {
+          devices[i].lastRead = now;
+          readI2CDevice(devices[i]);
+      }
+  }
+}
+
+// adafruit sensor stuff
+
+// -------------------- Adafruit sensor helper --------------------
+void updateMagAccelSensor() {
+  sensors_event_t event;
+  mag.getEvent(&event);
+
+  float heading = atan2(event.magnetic.y, event.magnetic.x) * 180.0 / PI;
+  if (heading < 0) heading += 360.0;
+
+  // Convert float to string with 1 decimal
+  char buffer[32];
+  dtostrf(heading, 5, 1, buffer);
+
+  // Prepend label and send
+  char message[64];
+  snprintf(message, sizeof(message), "MAGSENSOR:Heading=%s", buffer);
+  Firmata.sendString(message);
+}
+
+// -------------------- Analog inputs helper --------------------
+void updateAnalogInputs(unsigned long now) {
+  static unsigned long previousMillis = 0;
+
+  if (now - previousMillis > samplingInterval) {
+    previousMillis += samplingInterval;
+
+    for (byte pin = 0; pin < TOTAL_PINS; pin++) {
+      if (IS_PIN_ANALOG(pin) && Firmata.getPinMode(pin) == PIN_MODE_ANALOG) {
+        byte analogPin = PIN_TO_ANALOG(pin);
+        if (analogInputsToReport & (1 << analogPin)) {
+          Firmata.sendAnalog(analogPin, analogRead(analogPin));
+        }
+      }
+    }
+  }
+}
+
+
+//------------------------existing firmata stuff--------------------------
 
 void attachServo(byte pin, int minPulse, int maxPulse)
 {
@@ -691,7 +794,11 @@ void systemResetCallback()
 
 void setup()
 {
-  Firmata.setFirmwareVersion(FIRMATA_FIRMWARE_MAJOR_VERSION, FIRMATA_FIRMWARE_MINOR_VERSION);
+  // Firmata.setFirmwareVersion(FIRMATA_FIRMWARE_MAJOR_VERSION, FIRMATA_FIRMWARE_MINOR_VERSION);
+  // Manually set firmware info
+  Firmata.setFirmwareVersion(FIRMATA_FIRMWARE_MAJOR_VERSION,
+                             FIRMATA_FIRMWARE_MINOR_VERSION);
+  //Firmata.setFirmwareName(FIRMATA_FIRMWARE_NAME);
 
   Firmata.attach(ANALOG_MESSAGE, analogWriteCallback);
   Firmata.attach(DIGITAL_MESSAGE, digitalWriteCallback);
@@ -704,10 +811,10 @@ void setup()
   Firmata.attach(STRING_DATA, stringCallback);
 
 
-  stepperPitch.setMaxSpeed(1500);
-  stepperPitch.setAcceleration(100);
-  stepperYaw.setMaxSpeed(1500);
-  stepperYaw.setAcceleration(1000);
+  stepperPitch.setMaxSpeed(8000);
+  stepperPitch.setAcceleration(6000);
+  stepperYaw.setMaxSpeed(8000);
+  stepperYaw.setAcceleration(6000);
  
   // Add I2C devices
   Wire.begin();
@@ -717,7 +824,16 @@ void setup()
   Wire.endTransmission();
   delay(10);  // give it time to initialize
   addI2CDevice(0x52, 0x00, 6, true, 50, nunchuckCallback); //wii nunchuck addin, for testing but maybe useful?
-  // addI2CDevice(addr, reg, bytes, stop, interval_ms, callback);
+    // addI2CDevice(addr, reg, bytes, stop, interval_ms, callback);
+  
+  //magnetometer
+  if (!mag.begin()) { // default I2C address 0x1E; use begin_I2C(addr) if needed
+      Firmata.sendString("No LIS2MDL detected");
+      while (1);
+  }
+  // Set data rate to 10 Hz
+  mag.setDataRate(LIS2MDL_RATE_10_HZ);
+  delay(50); // allow sensor to start up
   
   Firmata.begin(57600);
   while (!Serial) {
@@ -728,55 +844,97 @@ void setup()
 }
 
 /*==============================================================================
- * LOOP()
+ * LOOP() old loop, keeping for now
  *============================================================================*/
-void loop()
-{
-  byte pin, analogPin;
+// void loop()
+// {
+//   byte pin, analogPin;
 
-  /* DIGITALREAD - as fast as possible, check for changes and output them to the
-   * FTDI buffer using Serial.print()  */
+//   /* DIGITALREAD - as fast as possible, check for changes and output them to the
+//    * FTDI buffer using Serial.print()  */
+//   checkDigitalInputs();
+
+//   /* STREAMREAD - processing incoming messagse as soon as possible, while still
+//    * checking digital inputs.  */
+//   while (Firmata.available())
+//     Firmata.processInput();
+
+//   // Stepper runs + report completion
+//   if (stepperPitch.run() == false && pitchRunning) {
+//       pitchRunning = false;
+//       Firmata.sendString("PITCH:DONE");
+//   }
+//   if (stepperYaw.run() == false && yawRunning) {
+//       yawRunning = false;
+//       Firmata.sendString("YAW:DONE");
+//   }
+
+//   //generic i2c
+//   unsigned long now = millis();
+//   for (int i = 0; i < deviceCount; i++) {
+//       if (now - devices[i].lastRead >= devices[i].interval) {
+//           devices[i].lastRead = now;
+//           readI2CDevice(devices[i]);
+//       }
+//   }
+
+// //adafruit sensors
+//   sensors_event_t event;
+//   mag.getEvent(&event);
+
+//   float Pi = 3.14159;
+
+//   float heading = (atan2(event.magnetic.y, event.magnetic.x) * 180.0) / PI;
+//   if (heading < 0) heading += 360.0;
+
+//   // Convert float to string with 1 decimal
+//   char buffer[32];
+//   dtostrf(heading, 5, 1, buffer); // width=5, 1 decimal, stores in buffer
+
+//   // Prepend your label
+//   char message[64];
+//   snprintf(message, sizeof(message), "SM303AGR:Heading=%s", buffer);
+
+//   // Send over Firmata
+//   Firmata.sendString(message);
+
+//   //for analog stuff
+//   currentMillis = millis();
+//   if (currentMillis - previousMillis > samplingInterval) {
+//     previousMillis += samplingInterval;
+//     /* ANALOGREAD - do all analogReads() at the configured sampling interval */
+//     for (pin = 0; pin < TOTAL_PINS; pin++) {
+//       if (IS_PIN_ANALOG(pin) && Firmata.getPinMode(pin) == PIN_MODE_ANALOG) {
+//         analogPin = PIN_TO_ANALOG(pin);
+//         if (analogInputsToReport & (1 << analogPin)) {
+//           Firmata.sendAnalog(analogPin, analogRead(analogPin));
+//         }
+//       }
+//     }
+//   }
+//   delay(10);
+// }
+
+void loop() {
+  byte pin, analogPin;
+  unsigned long now = millis();
+
+  // 1 Check digital inputs as fast as possible
   checkDigitalInputs();
 
-  /* STREAMREAD - processing incoming messagse as soon as possible, while still
-   * checking digital inputs.  */
+  // 2️ Process incoming Firmata messages
   while (Firmata.available())
     Firmata.processInput();
 
-  // Stepper runs + report completion
-  if (stepperPitch.run() == false && pitchRunning) {
-      pitchRunning = false;
-      Firmata.sendString("PITCH:DONE");
-  }
-  if (stepperYaw.run() == false && yawRunning) {
-      yawRunning = false;
-      Firmata.sendString("YAW:DONE");
-  }
+  // 3️ Run steppers
+  runSteppers();
 
-  // // LED blink
-  // if (millis() - ledTimer >= ledDelay) {
-  //   ledState = !ledState;
-  //   digitalWrite(ledPin, ledState ? HIGH : LOW);
-  //   ledTimer = millis();
-  // }
-  unsigned long now = millis();
-  for (int i = 0; i < deviceCount; i++) {
-      if (now - devices[i].lastRead >= devices[i].interval) {
-          devices[i].lastRead = now;
-          readI2CDevice(devices[i]);
-      }
-  }
-  currentMillis = millis();
-  if (currentMillis - previousMillis > samplingInterval) {
-    previousMillis += samplingInterval;
-    /* ANALOGREAD - do all analogReads() at the configured sampling interval */
-    for (pin = 0; pin < TOTAL_PINS; pin++) {
-      if (IS_PIN_ANALOG(pin) && Firmata.getPinMode(pin) == PIN_MODE_ANALOG) {
-        analogPin = PIN_TO_ANALOG(pin);
-        if (analogInputsToReport & (1 << analogPin)) {
-          Firmata.sendAnalog(analogPin, analogRead(analogPin));
-        }
-      }
-    }
-  }
+  // 4️ Update generic I2C devices
+  updateI2CDevices(now);
+
+  // 5️ Update Adafruit unified sensors, starting with mag/accel SM303AGR
+  updateMagAccelSensor();
+
+  // 6️ Update analog inputs at a defined interval
+  updateAnalogInputs(now);
 }
